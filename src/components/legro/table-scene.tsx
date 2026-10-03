@@ -11,6 +11,7 @@ import {
   PAPER,
   PLATE,
   poseFromPoint,
+  poseRotationRadians,
   STUD,
   WOOD,
 } from "@/legro/lab-bridge";
@@ -44,8 +45,6 @@ type SceneProps = {
   focus?: { cx: number; cz: number; radius: number; height: number; fov: number };
   /** Arrastar gira só a vista. Não existe na construção. */
   onInspectTurn?: (delta: number) => void;
-  /** Inclinação livre da peça que está na mão. Não altera a lei de encaixe até o snap. */
-  heldTilt?: { x: number; z: number };
 };
 
 function CameraRig({ turn, focus }: { turn: number; focus?: SceneProps["focus"] }) {
@@ -228,7 +227,7 @@ function PieceGroup({
   return (
     <group
       position={[piece.pose.x * STUD, piece.pose.y * PLATE, piece.pose.z * STUD]}
-      rotation={[0, (piece.pose.yaw * Math.PI) / 2, 0]}
+      rotation={poseRotationRadians(piece.pose)}
     >
       <Cells
         defId={piece.defId}
@@ -247,11 +246,11 @@ function PieceGroup({
   );
 }
 
-function GhostGroup({ ghost, tilt }: { ghost: SceneGhost; tilt?: { x: number; z: number } }) {
+function GhostGroup({ ghost }: { ghost: SceneGhost }) {
   return (
     <group
       position={[ghost.pose.x * STUD, ghost.pose.y * PLATE, ghost.pose.z * STUD]}
-      rotation={[tilt?.x ?? 0, (ghost.pose.yaw * Math.PI) / 2, tilt?.z ?? 0]}
+      rotation={poseRotationRadians(ghost.pose)}
     >
       <Cells
         defId={ghost.defId}
@@ -270,7 +269,7 @@ function GhostGroup({ ghost, tilt }: { ghost: SceneGhost; tilt?: { x: number; z:
 
 const CHAIR_MARK = [COR_HEX.vermelho, COR_HEX.azul, COR_HEX.amarelo];
 
-function World({ pieces, ghost, yaw, viewTurn, onAim, onCommit, onDetach, tables = 1, focus, onInspectTurn, heldTilt }: SceneProps) {
+function World({ pieces, ghost, yaw, viewTurn, onAim, onCommit, onDetach, tables = 1, focus, onInspectTurn }: SceneProps) {
   const holding = ghost !== null;
   const wide = tables === 3;
   const dragX = useRef<number | null>(null);
@@ -366,7 +365,7 @@ function World({ pieces, ghost, yaw, viewTurn, onAim, onCommit, onDetach, tables
           onInspectUp={onInspectTurn ? inspectUp : undefined}
         />
       ))}
-      {ghost ? <GhostGroup ghost={ghost} tilt={heldTilt} /> : null}
+      {ghost ? <GhostGroup ghost={ghost} /> : null}
     </>
   );
 }
