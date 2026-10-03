@@ -19,3 +19,6 @@ A próxima revisão deve introduzir orientação 3D coerente na lei antes de lib
 ## Revisão de manipulação 3D
 
 A interface agora permite virar a peça na mão para frente e para o lado, além do giro horizontal. Essa manipulação é visual e deliberadamente não pode ser confirmada enquanto a orientação não corresponder à lei física atual. Isso evita o erro de gravar uma pose horizontal enquanto a criança vê uma peça inclinada. A próxima camada estrutural deverá migrar colisão e sockets para coordenadas físicas 3D antes de permitir encaixe lateral/vertical definitivo.
+
+
+<!-- Preview Vercel: branch de desenvolvimento conectada para testes visuais. -->
