@@ -9,6 +9,7 @@ import {
   pegarPeca,
   spinPiece,
   stepPose,
+  tiltPiece,
   tentarEncaixe,
 } from "@/legro/lab-bridge";
 import { createInitialState } from "@/legro/initial-state";
@@ -30,8 +31,6 @@ export function LabSession() {
   const [selected, setSelected] = useState<string | null>(null);
   const [pose, setPose] = useState<Pose>({ x: 2, y: 1, z: 2, yaw: 0 });
   const [viewTurn, setViewTurn] = useState(0.55);
-  const [tilt, setTilt] = useState({ x: 0, z: 0 });
-  const tiltNeutral = tilt.x % 4 === 0 && tilt.z % 4 === 0;
   const [boxOpen, setBoxOpen] = useState(false);
   const [trayIndex, setTrayIndex] = useState(0);
   const [Scene, setScene] = useState<typeof import("./table-scene").TableScene | null>(null);
@@ -69,7 +68,6 @@ export function LabSession() {
     if (result.ok) {
       setSelected(id);
       setPose({ x: 2, y: 1, z: 2, yaw: 0 });
-      setTilt({ x: 0, z: 0 });
     }
   }
 
@@ -77,7 +75,7 @@ export function LabSession() {
     if (!selected) return;
     const result = devolverPeca(state, selected);
     adopt(result, setState);
-    if (result.ok) { setSelected(null); setTilt({ x: 0, z: 0 }); }
+    if (result.ok) setSelected(null);
   }
 
   function detach(id: string) {
@@ -85,7 +83,6 @@ export function LabSession() {
     adopt(result, setState);
     if (result.ok) {
       setSelected(id);
-      setTilt({ x: 0, z: 0 });
       setPose((current) => ({ x: 2, y: 1, z: 2, yaw: current.yaw }));
     }
   }
@@ -95,7 +92,7 @@ export function LabSession() {
     const result = tentarEncaixe(state, selected, next);
     adopt(result, setState);
     setPose(next);
-    if (result.ok) { setSelected(null); setTilt({ x: 0, z: 0 }); }
+    if (result.ok) setSelected(null);
   }
 
   useEffect(() => {
@@ -146,7 +143,7 @@ export function LabSession() {
 
       <div className="relative min-h-0 flex-1 touch-none">
         {Scene ? (
-          <Scene pieces={placed} ghost={ghost} yaw={pose.yaw} heldTilt={{ x: tilt.x * Math.PI / 2, z: tilt.z * Math.PI / 2 }} viewTurn={viewTurn} onAim={setPose} onCommit={commit} onDetach={detach} focus={{ cx: 6 * 0.28, cz: 6 * 0.28, radius: 4.15, height: 2.15, fov: 42 }} />
+          <Scene pieces={placed} ghost={ghost} yaw={pose.yaw} viewTurn={viewTurn} onAim={setPose} onCommit={commit} onDetach={detach} focus={{ cx: 6 * 0.28, cz: 6 * 0.28, radius: 4.15, height: 2.15, fov: 42 }} />
         ) : (
           <div className="grid h-full place-items-center"><p className="text-sm text-muted">Abrindo a mesa…</p></div>
         )}
@@ -160,13 +157,13 @@ export function LabSession() {
         {inHand && piece ? (
           <div className="absolute right-3 top-3 max-w-[calc(100%-1.5rem)] rounded-2xl border border-line bg-dock/95 p-3 shadow-lg backdrop-blur">
             <p className="mb-2 text-center text-xs font-semibold uppercase tracking-wide text-muted">Mover peça</p>
-            <MovePad onNudge={(which) => setPose((current) => stepPose(current, viewTurn, which))} onSpin={(sentido) => setPose((current) => spinPiece(piece.defId, current, sentido))} onTilt={(axis, direction) => setTilt((current) => ({ ...current, [axis]: (current[axis] + direction + 4) % 4 }))} onLift={(dir) => setPose((current) => ({ ...current, y: Math.max(0, current.y + dir) }))} />
+            <MovePad onNudge={(which) => setPose((current) => stepPose(current, viewTurn, which))} onSpin={(sentido) => setPose((current) => spinPiece(piece.defId, current, sentido))} onTilt={(axis, direction) => setPose((current) => tiltPiece(current, axis, direction))} onLift={(dir) => setPose((current) => ({ ...current, y: Math.max(0, current.y + dir) }))} />
             <div className="mt-2 grid grid-cols-2 gap-2">
-              <button type="button" className="lab-btn bg-ink text-paper disabled:opacity-40" disabled={!tiltNeutral} title={!tiltNeutral ? "Esta orientação ainda não possui encaixe físico 3D" : undefined} onClick={() => commit(pose)}>Encaixar</button>
+              <button type="button" className="lab-btn bg-ink text-paper" onClick={() => commit(pose)}>Encaixar</button>
               <button type="button" className="lab-btn" onClick={giveBack}><Undo2 className="size-4" /> Guardar</button>
             </div>
             <p className={previa?.ok ? "mt-2 text-center text-xs text-ok" : "mt-2 text-center text-xs text-no"}>
-              {!tiltNeutral ? "Você pode virar e examinar a peça. Para encaixar, deixe os pinos na orientação compatível." : previa?.ok ? "Pode encaixar aqui" : previa ? MOTIVO_TEXTO[previa.motivo] : ""}
+              {previa?.ok ? "Pode encaixar aqui" : previa ? MOTIVO_TEXTO[previa.motivo] : ""}
             </p>
           </div>
         ) : null}
