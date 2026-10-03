@@ -143,7 +143,7 @@ export function LabSession() {
 
       <div className="relative min-h-0 flex-1 touch-none">
         {Scene ? (
-          <Scene pieces={placed} ghost={ghost} yaw={pose.yaw} viewTurn={viewTurn} onAim={setPose} onCommit={commit} onDetach={detach} focus={{ cx: 6 * 0.28, cz: 6 * 0.28, radius: 4.15, height: 2.15, fov: 42 }} />
+          <Scene pieces={placed} ghost={ghost} yaw={pose.yaw} viewTurn={viewTurn} onAim={setPose} onCommit={commit} onDetach={detach} focus={{ cx: 6 * 0.28, cz: 6 * 0.28, radius: 5.35, height: 2.75, fov: 45 }} />
         ) : (
           <div className="grid h-full place-items-center"><p className="text-sm text-muted">Abrindo a mesa…</p></div>
         )}
@@ -155,7 +155,7 @@ export function LabSession() {
         </div>
 
         {inHand && piece ? (
-          <div className="absolute right-3 top-3 max-w-[calc(100%-1.5rem)] rounded-2xl border border-line bg-dock/95 p-3 shadow-lg backdrop-blur">
+          <div className="absolute right-3 top-3 w-[min(22rem,calc(100%-1.5rem))] rounded-2xl border border-line bg-dock/95 p-3 shadow-lg backdrop-blur sm:right-4 sm:top-4">
             <p className="mb-2 text-center text-xs font-semibold uppercase tracking-wide text-muted">Mover peça</p>
             <MovePad onNudge={(which) => setPose((current) => stepPose(current, viewTurn, which))} onSpin={(sentido) => setPose((current) => spinPiece(piece.defId, current, sentido))} onTilt={(axis, direction) => setPose((current) => tiltPiece(current, axis, direction))} onLift={(dir) => setPose((current) => ({ ...current, y: Math.max(0, current.y + dir) }))} />
             <div className="mt-2 grid grid-cols-2 gap-2">
