@@ -17,10 +17,11 @@ import {
   spinPiece,
   STUD,
   tentarEncaixe,
+  tiltPiece,
   yawDegrees,
 } from "./lab-bridge.ts";
 import { CATALOG } from "./catalog.ts";
-import { rotXZ } from "./geometry.ts";
+import { rotateVec, rotXZ } from "./geometry.ts";
 import { applyIntent } from "./reducer.ts";
 import type { ApplyResult, Pose, RoomState, Yaw } from "./types.ts";
 import { evaluatePlacement } from "./validate.ts";
@@ -110,6 +111,38 @@ describe("ponte do laboratório", () => {
     assert.equal(slim.yaw, 3);
     assert.deepEqual(footprint("bloco_1x4", { x: 2, y: 1, z: 2, yaw: 0 }).includes("2,3"), true);
     assert.deepEqual(footprint("bloco_1x4", slim).includes("2,3"), true);
+  });
+
+  it("virar para frente e de lado entra na mesma geometria determinística", () => {
+    const start: Pose = { x: 3, y: 4, z: 5, yaw: 0 };
+    const forward = tiltPiece(start, "x", 1);
+    assert.equal(forward.pitch, 1);
+    assert.deepEqual(rotateVec({ x: 0, y: 1, z: 0 }, forward), { x: 0, y: 0, z: 1 });
+
+    const side = tiltPiece(start, "z", 1);
+    assert.equal(side.roll, 1);
+    assert.deepEqual(rotateVec({ x: 0, y: 1, z: 0 }, side), { x: -1, y: 0, z: 0 });
+
+    let loop = start;
+    for (let i = 0; i < 4; i++) loop = tiltPiece(loop, "x", 1);
+    assert.equal(loop.pitch, 0);
+    assert.deepEqual(rotateVec({ x: 1, y: 2, z: 3 }, loop), { x: 1, y: 2, z: 3 });
+  });
+
+  it("a prévia 3D e o encaixe consultam exatamente a mesma lei", () => {
+    let state = createInitialState();
+    const brick = naMao(state, "bloco_1x2");
+    state = brick.state;
+    const pose = tiltPiece({ x: 1, y: 1, z: 2, yaw: 0 }, "x", 1);
+    const preview = lerPrevia(state, brick.id, pose);
+    const direct = evaluatePlacement(
+      state,
+      0,
+      state.instances.find((item) => item.id === brick.id)!,
+      pose,
+    );
+    assert.equal(preview.ok, direct.ok);
+    if (!preview.ok && !direct.ok) assert.equal(preview.motivo, direct.motivo);
   });
 
   it("o clique vira uma pose inteira, sem encaixar sozinho", () => {
