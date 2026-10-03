@@ -60,8 +60,23 @@ export function aabbOverlaps(a: AabbU, b: AabbU): boolean {
   );
 }
 
+export type PieceCellAabbU = { kind: CellDef["kind"]; box: AabbU };
+
+export function pieceCellAabbsU(defId: string, pose: Pose): PieceCellAabbU[] {
+  return (CATALOG[defId]?.cells ?? []).map((cell) => ({ kind: cell.kind, box: cellAabbU(cell, pose) }));
+}
+
 export function pieceSolidAabbsU(defId: string, pose: Pose): AabbU[] {
-  return (CATALOG[defId]?.cells ?? [])
-    .filter((cell) => cell.kind === "solido")
-    .map((cell) => cellAabbU(cell, pose));
+  return pieceCellAabbsU(defId, pose).filter((cell) => cell.kind === "solido").map((cell) => cell.box);
+}
+
+export function piecesOverlapU(
+  aDefId: string,
+  aPose: Pose,
+  bDefId: string,
+  bPose: Pose,
+): boolean {
+  const a = pieceSolidAabbsU(aDefId, aPose);
+  const b = pieceSolidAabbsU(bDefId, bPose);
+  return a.some((left) => b.some((right) => aabbOverlaps(left, right)));
 }
