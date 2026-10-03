@@ -92,61 +92,56 @@ export function stepPose(pose: Pose, turn: number, which: ScreenNudge): Pose {
   return { ...pose, x: pose.x + step.x, z: pose.z + step.z };
 }
 
-function footprintXZ(defId: string): { x: number; z: number }[] {
-  const cells = CATALOG[defId]?.cells ?? [];
-  const seen = new Set<string>();
-  const out: { x: number; z: number }[] = [];
-  for (const cell of cells) {
-    if (cell.kind === "vazio") continue;
-    const key = `${cell.x},${cell.z}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push({ x: cell.x, z: cell.z });
-  }
-  return out;
+function solidCells(defId: string): { x: number; y: number; z: number }[] {
+  return (CATALOG[defId]?.cells ?? [])
+    .filter((cell) => cell.kind !== "vazio")
+    .map(({ x, y, z }) => ({ x, y, z }));
 }
 
-function averageXZ(cells: { x: number; z: number }[]): { x: number; z: number } {
-  let x = 0;
-  let z = 0;
-  for (const cell of cells) {
-    x += cell.x;
-    z += cell.z;
-  }
+function average3D(cells: { x: number; y: number; z: number }[]): { x: number; y: number; z: number } {
+  let x = 0, y = 0, z = 0;
+  for (const cell of cells) { x += cell.x; y += cell.y; z += cell.z; }
   const count = cells.length || 1;
-  return { x: x / count, z: z / count };
+  return { x: x / count, y: y / count, z: z / count };
 }
 
 /**
- * Gira 90° no lugar. Horário é horário na tela, olhando a mesa de cima.
- * Se o miolo cai num stud inteiro, ele fica. Se cai entre studs, gira em volta
- * do pino mais perto — a peça não sai andando pelo canto.
+ * Gira 90° em torno do Y mundial sem apagar pitch/roll.
+ * O pivô é calculado usando a forma já orientada em 3D.
  */
 export function spinPiece(defId: string, pose: Pose, sentido: "horario" | "antihorario"): Pose {
   const yaw = nextYaw(pose.yaw, sentido === "horario" ? -1 : 1);
-  const local = footprintXZ(defId);
+  const local = solidCells(defId);
   if (local.length === 0) return { ...pose, yaw };
-  const before = averageXZ(local.map((cell) => rotXZ(cell.x, cell.z, pose.yaw)));
-  const after = averageXZ(local.map((cell) => rotXZ(cell.x, cell.z, yaw)));
+
+  const before = average3D(local.map((cell) => rotateVec(cell, pose)));
+  const nextOrientation = { ...pose, yaw };
+  const after = average3D(local.map((cell) => rotateVec(cell, nextOrientation)));
   const rawX = before.x - after.x;
   const rawZ = before.z - after.z;
   const onStud = Math.abs(rawX - Math.round(rawX)) < 1e-6 && Math.abs(rawZ - Math.round(rawZ)) < 1e-6;
   if (onStud) {
-    return { x: pose.x + Math.round(rawX), y: pose.y, z: pose.z + Math.round(rawZ), yaw };
+    return { ...pose, x: pose.x + Math.round(rawX), z: pose.z + Math.round(rawZ), yaw };
   }
-  const mid = averageXZ(local);
+
+  const mid = average3D(local);
   const pivot = local.reduce((best, cell) => {
-    const dist = (cell.x - mid.x) ** 2 + (cell.z - mid.z) ** 2;
-    const bestDist = (best.x - mid.x) ** 2 + (best.z - mid.z) ** 2;
+    const dist = (cell.x - mid.x) ** 2 + (cell.y - mid.y) ** 2 + (cell.z - mid.z) ** 2;
+    const bestDist = (best.x - mid.x) ** 2 + (best.y - mid.y) ** 2 + (best.z - mid.z) ** 2;
     if (dist < bestDist - 1e-9) return cell;
-    if (Math.abs(dist - bestDist) <= 1e-9 && (cell.x < best.x || (cell.x === best.x && cell.z < best.z))) return cell;
+    if (
+      Math.abs(dist - bestDist) <= 1e-9 &&
+      (cell.x < best.x ||
+        (cell.x === best.x && (cell.y < best.y || (cell.y === best.y && cell.z < best.z))))
+    ) return cell;
     return best;
   });
-  const oldP = rotXZ(pivot.x, pivot.z, pose.yaw);
-  const newP = rotXZ(pivot.x, pivot.z, yaw);
+  const oldP = rotateVec(pivot, pose);
+  const newP = rotateVec(pivot, nextOrientation);
   return {
+    ...pose,
     x: pose.x + oldP.x - newP.x,
-    y: pose.y,
+    y: pose.y + oldP.y - newP.y,
     z: pose.z + oldP.z - newP.z,
     yaw,
   };
