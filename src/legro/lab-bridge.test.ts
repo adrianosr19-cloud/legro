@@ -129,6 +129,23 @@ describe("ponte do laboratório", () => {
     assert.deepEqual(rotateVec({ x: 1, y: 2, z: 3 }, loop), { x: 1, y: 2, z: 3 });
   });
 
+  it("girar uma peça já deitada preserva a orientação e fecha o ciclo", () => {
+    const start = tiltPiece({ x: 5, y: 4, z: 5, yaw: 0 }, "x", 1);
+    let pose = start;
+    for (let i = 0; i < 4; i++) pose = spinPiece("bloco_1x2", pose, "horario");
+    assert.deepEqual(pose, start);
+    assert.equal(pose.pitch, 1);
+    assert.equal(pose.roll, start.roll);
+
+    const side = tiltPiece({ x: 5, y: 4, z: 5, yaw: 0 }, "z", 1);
+    const back = spinPiece(
+      "bloco_2x2",
+      spinPiece("bloco_2x2", side, "horario"),
+      "antihorario",
+    );
+    assert.deepEqual(back, side);
+  });
+
   it("a prévia 3D e o encaixe consultam exatamente a mesma lei", () => {
     let state = createInitialState();
     const brick = naMao(state, "bloco_1x2");
