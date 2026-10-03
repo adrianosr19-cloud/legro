@@ -8,6 +8,7 @@ import {
   worldVec,
   type WorldSocket,
 } from "./geometry.ts";
+import { piecesOverlapU } from "./spatial.ts";
 import type { Chair, Connection, PieceInstance, Pose, RejectReason, RoomState } from "./types.ts";
 
 export type PlacementOk = { ok: true; connections: Connection[] };
@@ -210,6 +211,16 @@ export function evaluatePlacement(
     ...worldVec(cell, pose),
   }));
   const selfSockets = def.sockets.map((socket) => projectSocket(instance.id, chair, socket, pose));
+
+  // A colisão física usa micro-unidades inteiras (stud=5, placa=2).
+  // Assim uma peça deitada ocupa as dimensões reais rotacionadas, não uma grade cúbica fictícia.
+  for (const other of state.instances) {
+    if (!other.pose || other.id === instance.id || other.cadeira === null) continue;
+    if (piecesOverlapU(instance.defId, pose, other.defId, other.pose)) {
+      return { ok: false, motivo: "COLISAO" };
+    }
+  }
+
   const occ = occupancy(state, instance.id);
   const others = placedSockets(state, instance.id);
   const matings: Mating[] = [];
