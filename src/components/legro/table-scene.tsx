@@ -1,7 +1,7 @@
 import { Canvas, useThree, type ThreeEvent } from "@react-three/fiber";
 import { Line } from "@react-three/drei";
-import { useLayoutEffect, useRef } from "react";
-import { PerspectiveCamera } from "three";
+import { useLayoutEffect, useRef, useState } from "react";
+import { PerspectiveCamera, Plane, Vector3 } from "three";
 import { CATALOG } from "@/legro/catalog";
 import {
   COR_HEX,
@@ -40,6 +40,8 @@ type SceneProps = {
   onAim: (pose: Pose) => void;
   onCommit: (pose: Pose) => void;
   onDetach: (id: string) => void;
+  /** Move uma peça colocada diretamente, sem desmontá-la primeiro na interface. */
+  onMovePlaced?: (id: string, pose: Pose) => void;
   /** 1 é o laboratório. 3 é a sala, sem mudar o encaixe. */
   tables?: 1 | 3;
   focus?: { cx: number; cz: number; radius: number; height: number; fov: number };
@@ -109,6 +111,7 @@ function Cells({
   onInspectDown,
   onInspectMove,
   onInspectUp,
+  directMove,
 }: {
   defId: string;
   cor: string;
@@ -124,6 +127,7 @@ function Cells({
   onInspectDown?: (event: ThreeEvent<PointerEvent>) => void;
   onInspectMove?: (event: ThreeEvent<PointerEvent>) => boolean;
   onInspectUp?: (event: ThreeEvent<PointerEvent>) => boolean;
+  directMove?: boolean;
 }) {
   const def = CATALOG[defId];
   if (!def) return null;
@@ -154,6 +158,7 @@ function Cells({
             onPointerUp={(event) => {
               if (onInspectUp?.(event)) return;
               if (ghost || !pieceId || event.button !== 0) return;
+              if (directMove && !holding) return;
               event.stopPropagation();
               if (holding) {
                 const next = fromEvent(event);
@@ -215,6 +220,7 @@ function PieceGroup({
   onInspectDown,
   onInspectMove,
   onInspectUp,
+  onMovePlaced,
 }: {
   piece: ScenePiece;
   yaw: Yaw;
@@ -225,11 +231,67 @@ function PieceGroup({
   onInspectDown?: (event: ThreeEvent<PointerEvent>) => void;
   onInspectMove?: (event: ThreeEvent<PointerEvent>) => boolean;
   onInspectUp?: (event: ThreeEvent<PointerEvent>) => boolean;
+  onMovePlaced?: (id: string, pose: Pose) => void;
 }) {
+  const [dragPose, setDragPose] = useState<Pose | null>(null);
+  const drag = useRef<{ plane: Plane; offsetX: number; offsetZ: number } | null>(null);
+  const effectivePose = dragPose ?? piece.pose;
+
+  const pointOnDragPlane = (event: ThreeEvent<PointerEvent>) => {
+    if (!drag.current) return null;
+    const point = new Vector3();
+    return event.ray.intersectPlane(drag.current.plane, point) ? point : null;
+  };
+
   return (
     <group
-      position={[piece.pose.x * STUD, piece.pose.y * PLATE, piece.pose.z * STUD]}
-      rotation={poseRotationRadians(piece.pose)}
+      position={[effectivePose.x * STUD, effectivePose.y * PLATE, effectivePose.z * STUD]}
+      rotation={poseRotationRadians(effectivePose)}
+      onPointerDown={(event) => {
+        if (!onMovePlaced || holding || piece.fixa || event.button !== 0) return;
+        const plane = new Plane(new Vector3(0, 1, 0), -(piece.pose.y * PLATE));
+        const hit = new Vector3();
+        if (!event.ray.intersectPlane(plane, hit)) return;
+        drag.current = {
+          plane,
+          offsetX: hit.x - piece.pose.x * STUD,
+          offsetZ: hit.z - piece.pose.z * STUD,
+        };
+        setDragPose(piece.pose);
+        const target = event.nativeEvent.target;
+        if (target instanceof Element) target.setPointerCapture(event.nativeEvent.pointerId);
+        event.stopPropagation();
+      }}
+      onPointerMove={(event) => {
+        if (!drag.current || !onMovePlaced) return;
+        const hit = pointOnDragPlane(event);
+        if (!hit) return;
+        setDragPose((current) => ({
+          ...(current ?? piece.pose),
+          x: Math.round((hit.x - drag.current!.offsetX) / STUD),
+          z: Math.round((hit.z - drag.current!.offsetZ) / STUD),
+        }));
+        event.stopPropagation();
+      }}
+      onPointerUp={(event) => {
+        if (!drag.current || !onMovePlaced) return;
+        const hit = pointOnDragPlane(event);
+        const next = hit
+          ? {
+              ...(dragPose ?? piece.pose),
+              x: Math.round((hit.x - drag.current.offsetX) / STUD),
+              z: Math.round((hit.z - drag.current.offsetZ) / STUD),
+            }
+          : (dragPose ?? piece.pose);
+        drag.current = null;
+        setDragPose(null);
+        const target = event.nativeEvent.target;
+        if (target instanceof Element && target.hasPointerCapture(event.nativeEvent.pointerId)) {
+          target.releasePointerCapture(event.nativeEvent.pointerId);
+        }
+        event.stopPropagation();
+        onMovePlaced(piece.id, next);
+      }}
     >
       <Cells
         defId={piece.defId}
@@ -243,6 +305,7 @@ function PieceGroup({
         onInspectDown={onInspectDown}
         onInspectMove={onInspectMove}
         onInspectUp={onInspectUp}
+        directMove={!!onMovePlaced}
       />
     </group>
   );
@@ -271,7 +334,7 @@ function GhostGroup({ ghost }: { ghost: SceneGhost }) {
 
 const CHAIR_MARK = [COR_HEX.vermelho, COR_HEX.azul, COR_HEX.amarelo];
 
-function World({ pieces, ghost, yaw, viewTurn, onAim, onCommit, onDetach, tables = 1, focus, onInspectTurn }: SceneProps) {
+function World({ pieces, ghost, yaw, viewTurn, onAim, onCommit, onDetach, onMovePlaced, tables = 1, focus, onInspectTurn }: SceneProps) {
   const holding = ghost !== null;
   const wide = tables === 3;
   const dragX = useRef<number | null>(null);
@@ -358,7 +421,6 @@ function World({ pieces, ghost, yaw, viewTurn, onAim, onCommit, onDetach, tables
           key={piece.id}
           piece={piece}
           yaw={yaw}
-          orientation={ghost?.pose}
           holding={holding}
           onAim={onAim}
           onCommit={onCommit}
@@ -366,6 +428,7 @@ function World({ pieces, ghost, yaw, viewTurn, onAim, onCommit, onDetach, tables
           onInspectDown={onInspectTurn ? inspectDown : undefined}
           onInspectMove={onInspectTurn ? inspectMove : undefined}
           onInspectUp={onInspectTurn ? inspectUp : undefined}
+          onMovePlaced={onMovePlaced}
         />
       ))}
       {ghost ? <GhostGroup ghost={ghost} /> : null}
