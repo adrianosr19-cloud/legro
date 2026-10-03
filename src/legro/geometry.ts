@@ -1,9 +1,13 @@
-import type { Axis, Normal, Pose, SocketDef, Yaw } from "./types.ts";
+import type { Axis, Normal, Pose, QuarterTurn, SocketDef, Yaw } from "./types.ts";
 
 export type Vec = { x: number; y: number; z: number };
 
-export function isYaw(value: number): value is Yaw {
+export function isQuarterTurn(value: number | undefined): value is QuarterTurn {
   return value === 0 || value === 1 || value === 2 || value === 3;
+}
+
+export function isYaw(value: number): value is Yaw {
+  return isQuarterTurn(value);
 }
 
 export function gradeOk(pose: Pose): boolean {
@@ -11,91 +15,104 @@ export function gradeOk(pose: Pose): boolean {
     Number.isInteger(pose.x) &&
     Number.isInteger(pose.y) &&
     Number.isInteger(pose.z) &&
-    isYaw(pose.yaw)
+    isYaw(pose.yaw) &&
+    (pose.pitch === undefined || isQuarterTurn(pose.pitch)) &&
+    (pose.roll === undefined || isQuarterTurn(pose.roll))
   );
 }
 
-/** Rotação em torno de Y. yaw 1: (x, z) → (z, −x). */
+/** Rotação em torno de Y. yaw 1: (x, z) → (z, −x). Mantida para compatibilidade. */
 export function rotXZ(x: number, z: number, yaw: Yaw): { x: number; z: number } {
   switch (yaw) {
-    case 0:
-      return { x, z };
-    case 1:
-      return { x: z, z: -x };
-    case 2:
-      return { x: -x, z: -z };
-    case 3:
-      return { x: -z, z: x };
+    case 0: return { x, z };
+    case 1: return { x: z, z: -x };
+    case 2: return { x: -x, z: -z };
+    case 3: return { x: -z, z: x };
   }
 }
 
-const ROT_NORMAL: Record<Yaw, Record<Normal, Normal>> = {
-  0: { "+x": "+x", "-x": "-x", "+y": "+y", "-y": "-y", "+z": "+z", "-z": "-z" },
-  1: { "+x": "-z", "-x": "+z", "+y": "+y", "-y": "-y", "+z": "+x", "-z": "-x" },
-  2: { "+x": "-x", "-x": "+x", "+y": "+y", "-y": "-y", "+z": "-z", "-z": "+z" },
-  3: { "+x": "+z", "-x": "-z", "+y": "+y", "-y": "-y", "+z": "-x", "-z": "+x" },
-};
-
-export function rotNormal(normal: Normal, yaw: Yaw): Normal {
-  return ROT_NORMAL[yaw][normal];
+function rotX(v: Vec, turn: QuarterTurn): Vec {
+  switch (turn) {
+    case 0: return v;
+    case 1: return { x: v.x, y: -v.z, z: v.y };
+    case 2: return { x: v.x, y: -v.y, z: -v.z };
+    case 3: return { x: v.x, y: v.z, z: -v.y };
+  }
+}
+function rotY(v: Vec, turn: QuarterTurn): Vec {
+  const r = rotXZ(v.x, v.z, turn);
+  return { x: r.x, y: v.y, z: r.z };
+}
+function rotZ(v: Vec, turn: QuarterTurn): Vec {
+  switch (turn) {
+    case 0: return v;
+    case 1: return { x: -v.y, y: v.x, z: v.z };
+    case 2: return { x: -v.x, y: -v.y, z: v.z };
+    case 3: return { x: v.y, y: -v.x, z: v.z };
+  }
 }
 
-export function rotAxis(axis: Axis, yaw: Yaw): Axis {
-  if (axis === "y") return "y";
-  if (yaw === 0 || yaw === 2) return axis;
-  return axis === "x" ? "z" : "x";
+/**
+ * Orientação ortogonal determinística. A ordem é X (pitch), Y (yaw), Z (roll),
+ * a mesma convenção usada pela cena. Só existem coordenadas inteiras.
+ */
+export function rotateVec(local: Vec, pose: Pick<Pose, "yaw" | "pitch" | "roll">): Vec {
+  const pitch = pose.pitch ?? 0;
+  const roll = pose.roll ?? 0;
+  return rotZ(rotY(rotX(local, pitch), pose.yaw), roll);
+}
+
+const NORMAL_VEC: Record<Normal, Vec> = {
+  "+x": { x: 1, y: 0, z: 0 }, "-x": { x: -1, y: 0, z: 0 },
+  "+y": { x: 0, y: 1, z: 0 }, "-y": { x: 0, y: -1, z: 0 },
+  "+z": { x: 0, y: 0, z: 1 }, "-z": { x: 0, y: 0, z: -1 },
+};
+function vecNormal(v: Vec): Normal {
+  if (v.x === 1) return "+x"; if (v.x === -1) return "-x";
+  if (v.y === 1) return "+y"; if (v.y === -1) return "-y";
+  if (v.z === 1) return "+z"; return "-z";
+}
+const AXIS_VEC: Record<Axis, Vec> = {
+  x: { x: 1, y: 0, z: 0 }, y: { x: 0, y: 1, z: 0 }, z: { x: 0, y: 0, z: 1 },
+};
+function vecAxis(v: Vec): Axis {
+  if (v.x !== 0) return "x";
+  if (v.y !== 0) return "y";
+  return "z";
+}
+
+export function rotNormal(normal: Normal, poseOrYaw: Pose | Yaw): Normal {
+  const pose = typeof poseOrYaw === "number" ? { yaw: poseOrYaw } : poseOrYaw;
+  return vecNormal(rotateVec(NORMAL_VEC[normal], pose));
+}
+
+export function rotAxis(axis: Axis, poseOrYaw: Pose | Yaw): Axis {
+  const pose = typeof poseOrYaw === "number" ? { yaw: poseOrYaw } : poseOrYaw;
+  return vecAxis(rotateVec(AXIS_VEC[axis], pose));
 }
 
 export function worldVec(local: Vec, pose: Pose): Vec {
-  const xz = rotXZ(local.x, local.z, pose.yaw);
-  return { x: pose.x + xz.x, y: pose.y + local.y, z: pose.z + xz.z };
+  const r = rotateVec(local, pose);
+  return { x: pose.x + r.x, y: pose.y + r.y, z: pose.z + r.z };
 }
 
-export function cellKey(v: Vec): string {
-  return `${v.x},${v.y},${v.z}`;
-}
+export function cellKey(v: Vec): string { return `${v.x},${v.y},${v.z}`; }
 
 export function opposite(normal: Normal): Normal {
   switch (normal) {
-    case "+x":
-      return "-x";
-    case "-x":
-      return "+x";
-    case "+y":
-      return "-y";
-    case "-y":
-      return "+y";
-    case "+z":
-      return "-z";
-    case "-z":
-      return "+z";
+    case "+x": return "-x"; case "-x": return "+x";
+    case "+y": return "-y"; case "-y": return "+y";
+    case "+z": return "-z"; case "-z": return "+z";
   }
 }
 
-export function step(normal: Normal): Vec {
-  switch (normal) {
-    case "+x":
-      return { x: 1, y: 0, z: 0 };
-    case "-x":
-      return { x: -1, y: 0, z: 0 };
-    case "+y":
-      return { x: 0, y: 1, z: 0 };
-    case "-y":
-      return { x: 0, y: -1, z: 0 };
-    case "+z":
-      return { x: 0, y: 0, z: 1 };
-    case "-z":
-      return { x: 0, y: 0, z: -1 };
-  }
-}
+export function step(normal: Normal): Vec { return NORMAL_VEC[normal]; }
 
 export type WorldSocket = {
   instanceId: string;
   socketId: string;
   cadeira: 0 | 1 | 2;
-  x: number;
-  y: number;
-  z: number;
+  x: number; y: number; z: number;
   family: SocketDef["family"];
   gender: SocketDef["gender"];
   normal?: Normal;
@@ -103,24 +120,14 @@ export type WorldSocket = {
   yaw: Yaw;
 };
 
-export function projectSocket(
-  instanceId: string,
-  cadeira: 0 | 1 | 2,
-  socket: SocketDef,
-  pose: Pose,
-): WorldSocket {
+export function projectSocket(instanceId: string, cadeira: 0 | 1 | 2, socket: SocketDef, pose: Pose): WorldSocket {
   const at = worldVec(socket, pose);
   return {
-    instanceId,
-    socketId: socket.id,
-    cadeira,
-    x: at.x,
-    y: at.y,
-    z: at.z,
-    family: socket.family,
-    gender: socket.gender,
-    normal: socket.normal ? rotNormal(socket.normal, pose.yaw) : undefined,
-    axis: socket.axis ? rotAxis(socket.axis, pose.yaw) : undefined,
+    instanceId, socketId: socket.id, cadeira,
+    x: at.x, y: at.y, z: at.z,
+    family: socket.family, gender: socket.gender,
+    normal: socket.normal ? rotNormal(socket.normal, pose) : undefined,
+    axis: socket.axis ? rotAxis(socket.axis, pose) : undefined,
     yaw: pose.yaw,
   };
 }
