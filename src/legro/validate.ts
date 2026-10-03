@@ -55,12 +55,15 @@ function pairMates(a: WorldSocket, b: WorldSocket): boolean {
 
   if (a.family === "dobradica") {
     if (a.x !== b.x || a.y !== b.y || a.z !== b.z) return false;
-    if (a.axis !== "y" || b.axis !== "y") return false;
+    // A orientação 3D pode levar o eixo local Y para X ou Z.
+    // As duas folhas só podem compartilhar o pino quando o eixo mundial coincide.
+    if (!a.axis || a.axis !== b.axis) return false;
     const genders = new Set([a.gender, b.gender]);
     if (!genders.has("folhaA") || !genders.has("folhaB")) return false;
-    const delta = (b.yaw - a.yaw + 4) % 4;
-    const ordered = a.gender === "folhaA" ? delta : (a.yaw - b.yaw + 4) % 4;
-    return ordered === 0 || ordered === 1 || ordered === 3;
+    // O teste de colisão continua decidindo se a combinação concreta das folhas é possível.
+    // Evitamos usar yaw aqui: depois de pitch/roll, yaw isolado já não representa o ângulo
+    // relativo em torno do eixo mundial da dobradiça.
+    return true;
   }
 
   return false;
