@@ -1,5 +1,5 @@
 import { BASE_ORIGINS, CATALOG } from "@/legro/catalog";
-import { bandeja, spinPiece, stepPose, STUD, yawDegrees } from "@/legro/lab-bridge";
+import { bandeja, spinPiece, stepPose, STUD, tiltPiece, yawDegrees } from "@/legro/lab-bridge";
 import { CADEIRA_NOME, SALA_TEXTO, textoDaLei, textoDoFato } from "@/legro/room-copy";
 import type { MatchReport } from "@/legro/report";
 import { readCred, writeCred, type RoomCred } from "@/legro/room-cred";
@@ -577,6 +577,7 @@ export function RoomSession({ code }: { code: string }) {
               <MovePad
                 onNudge={(which) => setPose((current) => stepPose(current, viewTurn, which))}
                 onSpin={(sentido) => setPose((current) => spinPiece(piece.defId, current, sentido))}
+                onTilt={(axis, direction) => setPose((current) => tiltPiece(current, axis, direction))}
                 onLift={(dir) => setPose((current) => ({ ...current, y: current.y + dir }))}
               />
               <button type="button" className="lab-btn bg-ink text-paper" onClick={() => void commit(pose)}>
