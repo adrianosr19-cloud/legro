@@ -13,6 +13,7 @@ import {
   tentarEncaixe,
 } from "@/legro/lab-bridge";
 import { createInitialState } from "@/legro/initial-state";
+import { moveAssemblyAtomically } from "@/legro/move";
 import { MOTIVO_TEXTO } from "@/legro/types";
 import type { Pose, RoomState } from "@/legro/types";
 import { ChevronLeft, ChevronRight, PackageOpen, RotateCcw, Undo2, X } from "lucide-react";
@@ -87,6 +88,11 @@ export function LabSession() {
     }
   }
 
+  function movePlaced(id: string, next: Pose) {
+    const result = moveAssemblyAtomically(state, LAB_CHAIR, id, next);
+    if (result.ok) setState(result.state);
+  }
+
   function commit(next: Pose) {
     if (!selected) return;
     const result = tentarEncaixe(state, selected, next);
@@ -143,7 +149,7 @@ export function LabSession() {
 
       <div className="relative min-h-0 flex-1 touch-none">
         {Scene ? (
-          <Scene pieces={placed} ghost={ghost} yaw={pose.yaw} viewTurn={viewTurn} onAim={setPose} onCommit={commit} onDetach={detach} focus={{ cx: 6 * 0.28, cz: 6 * 0.28, radius: 5.35, height: 2.75, fov: 45 }} />
+          <Scene pieces={placed} ghost={ghost} yaw={pose.yaw} viewTurn={viewTurn} onAim={setPose} onCommit={commit} onDetach={detach} onMovePlaced={movePlaced} focus={{ cx: 6 * 0.28, cz: 6 * 0.28, radius: 5.35, height: 2.75, fov: 45 }} />
         ) : (
           <div className="grid h-full place-items-center"><p className="text-sm text-muted">Abrindo a mesa…</p></div>
         )}
