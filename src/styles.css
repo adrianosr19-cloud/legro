@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", Georgia, serif;
+  --color-paper: #f3ecdf;
+  --color-ink: #241c16;
+  --color-muted: #6f6458;
+  --color-line: #e2d6c6;
+  --color-dock: #fffaf3;
+  --color-wood: #b9895a;
+  --color-ok: #1f6b45;
+  --color-no: #8d342c;
+  --color-brick-red: #c23b2e;
+  --color-brick-blue: #2a5fbf;
+  --color-brick-yellow: #e2b427;
+  --color-brick-green: #3d8a45;
+  --color-brick-white: #f7f4ee;
+  --color-brick-black: #2a2724;
+  --color-brick-orange: #e07a2f;
+  --color-brick-gray: #8d8478;
+}
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+@layer components {
+  .lab-btn {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--color-line);
+    background: var(--color-dock);
+    padding-inline: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-ink);
+  }
+}
