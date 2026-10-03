@@ -49,11 +49,18 @@ export function tiltPiece(pose: Pose, axis: "x" | "z", direction: 1 | -1): Pose 
     : { ...pose, roll: nextQuarterTurn(pose.roll, direction) };
 }
 
-export function poseRotationRadians(pose: Pose): [number, number, number] {
+export type RotationOrder = "XYZ";
+
+/**
+ * A lei compõe vetores como X -> Y -> Z. Em Three.js isso corresponde
+ * a Euler XYZ com os mesmos quartos de volta.
+ */
+export function poseRotationRadians(pose: Pose): [number, number, number, RotationOrder] {
   return [
     ((pose.pitch ?? 0) * Math.PI) / 2,
     (pose.yaw * Math.PI) / 2,
     ((pose.roll ?? 0) * Math.PI) / 2,
+    "XYZ",
   ];
 }
 
