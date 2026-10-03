@@ -1,6 +1,7 @@
 /** Lei do LEGRO. Sem render, sem rede, sem IA. */
 
-export type Yaw = 0 | 1 | 2 | 3;
+export type QuarterTurn = 0 | 1 | 2 | 3;
+export type Yaw = QuarterTurn;
 export type Chair = 0 | 1 | 2;
 export type Normal = "+x" | "-x" | "+y" | "-y" | "+z" | "-z";
 export type Axis = "x" | "z" | "y";
@@ -39,6 +40,10 @@ export type Pose = {
   y: number;
   z: number;
   yaw: Yaw;
+  /** Quartos de volta em torno de X. Ausente equivale a 0 para salas antigas. */
+  pitch?: QuarterTurn;
+  /** Quartos de volta em torno de Z. Ausente equivale a 0 para salas antigas. */
+  roll?: QuarterTurn;
 };
 
 export type Holder = "mesa" | Chair | "fixa";
