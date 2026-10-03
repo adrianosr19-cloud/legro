@@ -101,6 +101,7 @@ function Cells({
   ok,
   pieceId,
   yaw,
+  orientation,
   holding,
   onAim,
   onCommit,
@@ -115,6 +116,7 @@ function Cells({
   ok?: boolean;
   pieceId?: string;
   yaw: Yaw;
+  orientation?: Pick<Pose, "pitch" | "roll">;
   holding: boolean;
   onAim: (pose: Pose) => void;
   onCommit: (pose: Pose) => void;
@@ -127,7 +129,7 @@ function Cells({
   if (!def) return null;
   const color = COR_HEX[cor] ?? COR_HEX.cinza ?? INK;
   const fromEvent = (event: ThreeEvent<PointerEvent>) =>
-    poseFromPoint(event.point.x, event.point.y, event.point.z, yaw);
+    ({ ...poseFromPoint(event.point.x, event.point.y, event.point.z, yaw), ...orientation });
 
   return (
     <>
@@ -299,7 +301,7 @@ function World({ pieces, ghost, yaw, viewTurn, onAim, onCommit, onDetach, tables
     if (!holding) return;
     if (commit && event.button !== 0) return;
     event.stopPropagation();
-    const next = poseFromPoint(event.point.x, event.point.y, event.point.z, yaw);
+    const next = { ...poseFromPoint(event.point.x, event.point.y, event.point.z, yaw), pitch: ghost?.pose.pitch, roll: ghost?.pose.roll };
     onAim(next);
     if (commit) onCommit(next);
   };
@@ -356,6 +358,7 @@ function World({ pieces, ghost, yaw, viewTurn, onAim, onCommit, onDetach, tables
           key={piece.id}
           piece={piece}
           yaw={yaw}
+          orientation={ghost?.pose}
           holding={holding}
           onAim={onAim}
           onCommit={onCommit}
