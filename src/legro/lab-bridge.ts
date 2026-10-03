@@ -1,7 +1,7 @@
 import { CATALOG } from "./catalog.ts";
-import { rotXZ, worldVec } from "./geometry.ts";
+import { rotateVec, rotXZ, worldVec } from "./geometry.ts";
 import { applyIntent } from "./reducer.ts";
-import type { ApplyResult, PieceInstance, Pose, RejectReason, RoomState, Yaw } from "./types.ts";
+import type { ApplyResult, PieceInstance, Pose, QuarterTurn, RejectReason, RoomState, Yaw } from "./types.ts";
 
 /** Uma cadeira. A mesa do laboratório não abre as outras duas. */
 export const LAB_CHAIR = 0 as const;
@@ -35,6 +35,26 @@ export function isYaw(value: number): value is Yaw {
 
 export function nextYaw(yaw: Yaw, direction: 1 | -1): Yaw {
   return YAWS[(yaw + direction + 4) % 4]!;
+}
+
+export function nextQuarterTurn(value: QuarterTurn | undefined, direction: 1 | -1): QuarterTurn {
+  const current = value ?? 0;
+  return ((current + direction + 4) % 4) as QuarterTurn;
+}
+
+/** Vira a peça 90° de verdade; a orientação passa a fazer parte da lei. */
+export function tiltPiece(pose: Pose, axis: "x" | "z", direction: 1 | -1): Pose {
+  return axis === "x"
+    ? { ...pose, pitch: nextQuarterTurn(pose.pitch, direction) }
+    : { ...pose, roll: nextQuarterTurn(pose.roll, direction) };
+}
+
+export function poseRotationRadians(pose: Pose): [number, number, number] {
+  return [
+    ((pose.pitch ?? 0) * Math.PI) / 2,
+    (pose.yaw * Math.PI) / 2,
+    ((pose.roll ?? 0) * Math.PI) / 2,
+  ];
 }
 
 export type ScreenNudge = "esquerda" | "direita" | "cima" | "baixo";
@@ -154,15 +174,11 @@ export function poseFromPoint(x: number, y: number, z: number, yaw: Yaw): Pose {
 
 /** Canto da célula, em metros, depois da mesma rotação da lei. */
 export function visualCorner(local: { x: number; y: number; z: number }, pose: Pose): { x: number; y: number; z: number } {
-  const theta = yawRadians(pose.yaw);
-  const c = Math.cos(theta);
-  const s = Math.sin(theta);
-  const lx = local.x * STUD;
-  const lz = local.z * STUD;
+  const r = rotateVec(local, pose);
   return {
-    x: pose.x * STUD + (lx * c + lz * s),
-    y: pose.y * PLATE + local.y * PLATE,
-    z: pose.z * STUD + (-lx * s + lz * c),
+    x: (pose.x + r.x) * STUD,
+    y: (pose.y + r.y) * PLATE,
+    z: (pose.z + r.z) * STUD,
   };
 }
 
@@ -249,10 +265,11 @@ export function pecasNaMesa(state: RoomState): PieceInstance[] {
 export function cornerMatchesLaw(local: { x: number; y: number; z: number }, pose: Pose): boolean {
   const law = worldVec(local, pose);
   const drawn = visualCorner(local, pose);
-  const xz = rotXZ(local.x, local.z, pose.yaw);
+  const rotated = rotateVec(local, pose);
   return (
-    xz.x === law.x - pose.x &&
-    xz.z === law.z - pose.z &&
+    rotated.x === law.x - pose.x &&
+    rotated.y === law.y - pose.y &&
+    rotated.z === law.z - pose.z &&
     Math.abs(drawn.x - law.x * STUD) < 1e-9 &&
     Math.abs(drawn.y - law.y * PLATE) < 1e-9 &&
     Math.abs(drawn.z - law.z * STUD) < 1e-9
