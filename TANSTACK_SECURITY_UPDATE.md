@@ -1,0 +1,15 @@
+# LEGRO TanStack Start security update
+
+Updated to the patched TanStack release set from 2026-09-30.
+- @tanstack/react-start 1.168.60
+- @tanstack/start-server-core 1.169.39
+- @tanstack/react-router 1.170.41
+- @tanstack/router-plugin 1.168.42
+- @tanstack/router-core 1.171.34
+- @tanstack/start-client-core 1.170.34
+- @tanstack/start-plugin-core 1.171.49
+- @tanstack/router-generator 1.167.40
+- @tanstack/start-storage-context 1.167.36
+- @tanstack/react-start-client 1.168.39
+- @tanstack/react-start-rsc 0.1.59
+- @tanstack/react-start-server 1.167.46
