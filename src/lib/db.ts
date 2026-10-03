@@ -111,6 +111,9 @@ async function createPgliteSql(): Promise<Sql> {
   // data survives source edits (it resets on dev-server restart).
   globalRef.__pgliteInstance__ ??= (async () => {
     const { PGlite } = await import("@electric-sql/pglite");
+    // Em serverless (Vercel), o WASM do PGlite pode não estar disponível de forma
+    // confiável entre invocações. Mantemos este fallback para dev/preview local;
+    // deploy persistente deve fornecer DATABASE_URL (Postgres/Neon).
     const pg = new PGlite({
       parsers: {
         [OID_INT8]: Number,
