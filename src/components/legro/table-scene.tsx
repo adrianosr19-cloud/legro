@@ -237,12 +237,6 @@ function PieceGroup({
   const drag = useRef<{ plane: Plane; offsetX: number; offsetZ: number } | null>(null);
   const effectivePose = dragPose ?? piece.pose;
 
-  const pointOnDragPlane = (event: ThreeEvent<PointerEvent>) => {
-    if (!drag.current) return null;
-    const point = new Vector3();
-    return event.ray.intersectPlane(drag.current.plane, point) ? point : null;
-  };
-
   return (
     <group
       position={[effectivePose.x * STUD, effectivePose.y * PLATE, effectivePose.z * STUD]}
@@ -263,24 +257,29 @@ function PieceGroup({
         event.stopPropagation();
       }}
       onPointerMove={(event) => {
-        if (!drag.current || !onMovePlaced) return;
-        const hit = pointOnDragPlane(event);
-        if (!hit) return;
+        const activeDrag = drag.current;
+        if (!activeDrag || !onMovePlaced) return;
+        const hit = new Vector3();
+        if (!event.ray.intersectPlane(activeDrag.plane, hit)) return;
+        const nextX = Math.round((hit.x - activeDrag.offsetX) / STUD);
+        const nextZ = Math.round((hit.z - activeDrag.offsetZ) / STUD);
         setDragPose((current) => ({
           ...(current ?? piece.pose),
-          x: Math.round((hit.x - drag.current!.offsetX) / STUD),
-          z: Math.round((hit.z - drag.current!.offsetZ) / STUD),
+          x: nextX,
+          z: nextZ,
         }));
         event.stopPropagation();
       }}
       onPointerUp={(event) => {
-        if (!drag.current || !onMovePlaced) return;
-        const hit = pointOnDragPlane(event);
-        const next = hit
+        const activeDrag = drag.current;
+        if (!activeDrag || !onMovePlaced) return;
+        const hit = new Vector3();
+        const hasHit = event.ray.intersectPlane(activeDrag.plane, hit) !== null;
+        const next = hasHit
           ? {
               ...(dragPose ?? piece.pose),
-              x: Math.round((hit.x - drag.current.offsetX) / STUD),
-              z: Math.round((hit.z - drag.current.offsetZ) / STUD),
+              x: Math.round((hit.x - activeDrag.offsetX) / STUD),
+              z: Math.round((hit.z - activeDrag.offsetZ) / STUD),
             }
           : (dragPose ?? piece.pose);
         drag.current = null;
