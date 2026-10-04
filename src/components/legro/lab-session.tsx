@@ -69,6 +69,7 @@ export function LabSession() {
     if (result.ok) {
       setSelected(id);
       setPose({ x: 2, y: 1, z: 2, yaw: 0 });
+      setBoxOpen(false);
     }
   }
 
@@ -84,6 +85,7 @@ export function LabSession() {
     adopt(result, setState);
     if (result.ok) {
       setSelected(id);
+      setBoxOpen(false);
       setPose((current) => ({ x: 2, y: 1, z: 2, yaw: current.yaw }));
     }
   }
@@ -161,9 +163,11 @@ export function LabSession() {
         </div>
 
         {inHand && piece ? (
-          <div className="absolute right-3 top-3 w-[min(22rem,calc(100%-1.5rem))] rounded-2xl border border-line bg-dock/95 p-3 shadow-lg backdrop-blur sm:right-4 sm:top-4">
+          <div className="absolute bottom-3 left-1/2 w-[calc(100%-1rem)] max-w-[26rem] -translate-x-1/2 rounded-2xl border border-line bg-dock/95 p-3 shadow-xl backdrop-blur sm:bottom-auto sm:left-auto sm:right-4 sm:top-4 sm:w-[22rem] sm:translate-x-0 sm:shadow-lg">
             <p className="mb-2 text-center text-xs font-semibold uppercase tracking-wide text-muted">Mover peça</p>
-            <MovePad onNudge={(which) => setPose((current) => stepPose(current, viewTurn, which))} onSpin={(sentido) => setPose((current) => spinPiece(piece.defId, current, sentido))} onTilt={(axis, direction) => setPose((current) => tiltPiece(current, axis, direction))} onLift={(dir) => setPose((current) => ({ ...current, y: Math.max(0, current.y + dir) }))} />
+            <div className="flex justify-center overflow-x-auto pb-1">
+              <MovePad onNudge={(which) => setPose((current) => stepPose(current, viewTurn, which))} onSpin={(sentido) => setPose((current) => spinPiece(piece.defId, current, sentido))} onTilt={(axis, direction) => setPose((current) => tiltPiece(current, axis, direction))} onLift={(dir) => setPose((current) => ({ ...current, y: Math.max(0, current.y + dir) }))} />
+            </div>
             <div className="mt-2 grid grid-cols-2 gap-2">
               <button type="button" className="lab-btn bg-ink text-paper" onClick={() => commit(pose)}>Encaixar</button>
               <button type="button" className="lab-btn" onClick={giveBack}><Undo2 className="size-4" /> Guardar</button>
@@ -174,34 +178,36 @@ export function LabSession() {
           </div>
         ) : null}
 
-        <div className="absolute bottom-3 left-1/2 w-[min(94%,34rem)] -translate-x-1/2">
-          {!boxOpen ? (
-            <button type="button" className="mx-auto flex min-h-16 items-center gap-3 rounded-2xl border border-line bg-dock/95 px-5 py-3 shadow-lg backdrop-blur" onClick={() => setBoxOpen(true)}>
-              <PackageOpen className="size-7" />
-              <span className="text-left"><span className="block font-semibold">Caixa de peças</span><span className="block text-xs text-muted">Toque para abrir</span></span>
-            </button>
-          ) : (
-            <section className="rounded-3xl border border-line bg-dock/95 p-3 shadow-xl backdrop-blur" aria-label="Caixa de peças">
-              <div className="mb-2 flex items-center justify-between px-1">
-                <span className="text-sm font-semibold">Escolha uma peça</span>
-                <button type="button" className="grid size-11 place-items-center rounded-xl border border-line" onClick={() => setBoxOpen(false)} aria-label="Fechar caixa"><X className="size-5" /></button>
-              </div>
-              {currentTray ? (
-                <div className="grid grid-cols-[3rem_1fr_3rem] items-center gap-2">
-                  <button type="button" className="grid size-12 place-items-center rounded-2xl border border-line bg-paper" onClick={() => setTrayIndex((i) => i - 1)} aria-label="Peça anterior"><ChevronLeft className="size-7" /></button>
-                  <button type="button" className="flex min-h-28 items-center justify-center gap-4 rounded-2xl border-2 border-line bg-paper px-4 py-3" onClick={() => pick(currentTray.sampleId)}>
-                    <PieceGlyph defId={currentTray.defId} cor={currentTray.cores[0] ?? "cinza"} size={82} />
-                    <span className="min-w-0 text-left"><span className="block text-base font-semibold">{currentTray.nome}</span><span className="block text-sm capitalize text-muted">{currentTray.cores[0]} · {currentTray.count} disponíveis</span><span className="mt-1 block text-xs text-muted">Toque para pegar</span></span>
-                  </button>
-                  <button type="button" className="grid size-12 place-items-center rounded-2xl border border-line bg-paper" onClick={() => setTrayIndex((i) => i + 1)} aria-label="Próxima peça"><ChevronRight className="size-7" /></button>
+        {!inHand ? (
+          <div className="absolute bottom-3 left-1/2 w-[min(94%,34rem)] -translate-x-1/2">
+            {!boxOpen ? (
+              <button type="button" className="mx-auto flex min-h-16 items-center gap-3 rounded-2xl border border-line bg-dock/95 px-5 py-3 shadow-lg backdrop-blur" onClick={() => setBoxOpen(true)}>
+                <PackageOpen className="size-7" />
+                <span className="text-left"><span className="block font-semibold">Caixa de peças</span><span className="block text-xs text-muted">Toque para abrir</span></span>
+              </button>
+            ) : (
+              <section className="rounded-3xl border border-line bg-dock/95 p-3 shadow-xl backdrop-blur" aria-label="Caixa de peças">
+                <div className="mb-2 flex items-center justify-between px-1">
+                  <span className="text-sm font-semibold">Escolha uma peça</span>
+                  <button type="button" className="grid size-11 place-items-center rounded-xl border border-line" onClick={() => setBoxOpen(false)} aria-label="Fechar caixa"><X className="size-5" /></button>
                 </div>
-              ) : <p className="py-6 text-center text-sm text-muted">Todas as peças estão em uso.</p>}
-              <div className="mt-2 flex justify-center gap-1" aria-hidden="true">
-                {tray.slice(0, 12).map((_, i) => <span key={i} className={i === safeTrayIndex ? "h-1.5 w-5 rounded-full bg-ink" : "size-1.5 rounded-full bg-line"} />)}
-              </div>
-            </section>
-          )}
-        </div>
+                {currentTray ? (
+                  <div className="grid grid-cols-[3rem_1fr_3rem] items-center gap-2">
+                    <button type="button" className="grid size-12 place-items-center rounded-2xl border border-line bg-paper" onClick={() => setTrayIndex((i) => i - 1)} aria-label="Peça anterior"><ChevronLeft className="size-7" /></button>
+                    <button type="button" className="flex min-h-28 items-center justify-center gap-4 rounded-2xl border-2 border-line bg-paper px-4 py-3" onClick={() => pick(currentTray.sampleId)}>
+                      <PieceGlyph defId={currentTray.defId} cor={currentTray.cores[0] ?? "cinza"} size={82} />
+                      <span className="min-w-0 text-left"><span className="block text-base font-semibold">{currentTray.nome}</span><span className="block text-sm capitalize text-muted">{currentTray.cores[0]} · {currentTray.count} disponíveis</span><span className="mt-1 block text-xs text-muted">Toque para pegar</span></span>
+                    </button>
+                    <button type="button" className="grid size-12 place-items-center rounded-2xl border border-line bg-paper" onClick={() => setTrayIndex((i) => i + 1)} aria-label="Próxima peça"><ChevronRight className="size-7" /></button>
+                  </div>
+                ) : <p className="py-6 text-center text-sm text-muted">Todas as peças estão em uso.</p>}
+                <div className="mt-2 flex justify-center gap-1" aria-hidden="true">
+                  {tray.slice(0, 12).map((_, i) => <span key={i} className={i === safeTrayIndex ? "h-1.5 w-5 rounded-full bg-ink" : "size-1.5 rounded-full bg-line"} />)}
+                </div>
+              </section>
+            )}
+          </div>
+        ) : null}
       </div>
     </main>
   );
